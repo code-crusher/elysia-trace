@@ -6,6 +6,7 @@ import { env } from '../universal'
 import { isBun } from '../universal/utils'
 import { MaybePromise } from '../types'
 
+// I have nothing but my burger and I want nothing more
 export const handleFile = (
 	response: File | Blob,
 	set?: Context['set'],
@@ -147,23 +148,81 @@ export const parseSetCookies = (headers: Headers, setCookie: string[]) => {
 	return headers
 }
 
+// `set.headers` is a plain object unless multiple cookies are set, in which
+// case `handleSet` replaces it with a `Headers` instance
+const getHeader = (
+	headers: Context['set']['headers'] | undefined,
+	key: string
+) => (headers instanceof Headers ? headers.get(key) : headers?.[key])
+
+const setHeaderIfMissing = (
+	headers: Context['set']['headers'],
+	key: string,
+	value: string
+) => {
+	if (headers instanceof Headers) {
+		if (!headers.has(key)) headers.set(key, value)
+	} else if (!headers[key]) headers[key] = value
+}
+
+// `Headers.getSetCookie` is missing on older runtimes
+const getSetCookie = (headers: Headers) =>
+	headers.getSetCookie?.() ??
+	(headers.get('set-cookie') ? [headers.get('set-cookie')!] : [])
+
+// Append cookies without dropping the ones already set by either the route
+// (`set.cookie`) or the returned `Response`
+const mergeSetCookie = (
+	headers: Context['set']['headers'],
+	cookies: string[]
+) => {
+	if (headers instanceof Headers) {
+		const existing = getSetCookie(headers)
+
+		for (const cookie of cookies)
+			if (!existing.includes(cookie)) headers.append('set-cookie', cookie)
+
+		return
+	}
+
+	const existing = headers['set-cookie']
+	const merged = existing
+		? Array.isArray(existing)
+			? [...existing]
+			: [existing]
+		: []
+
+	for (const cookie of cookies)
+		if (!merged.includes(cookie)) merged.push(cookie)
+
+	if (merged.length)
+		headers['set-cookie'] = merged.length === 1 ? merged[0] : merged
+}
+
 export const responseToSetHeaders = (
 	response: Response,
 	set?: Context['set']
 ) => {
 	if (set?.headers) {
 		if (response) {
-			if (hasHeaderShorthand)
-				Object.assign(set.headers, response.headers.toJSON())
-			else
-				for (const [key, value] of response.headers.entries())
-					if (key in set.headers) set.headers[key] = value
+			const headers = set.headers
+
+			for (const [key, value] of response.headers.entries()) {
+				if (key === 'set-cookie') continue
+
+				if (headers instanceof Headers) headers.set(key, value)
+				else headers[key] = value
+			}
+
+			mergeSetCookie(headers, getSetCookie(response.headers))
 		}
 
 		if (set.status === 200) set.status = response.status
 
 		// ? `content-encoding` prevent response streaming
-		if (set.headers['content-encoding'])
+		if (set.headers instanceof Headers)
+			set.headers.delete('content-encoding')
+		else if (set.headers['content-encoding'])
 			delete set.headers['content-encoding']
 
 		return set
@@ -276,7 +335,9 @@ export const createStreamHandler =
 				// @ts-ignore ReadableStream is wrapped with sse()
 				generator?.sse ??
 				// User explicitly set content-type to SSE
-				set?.headers['content-type']?.startsWith('text/event-stream'))
+				(
+					getHeader(set?.headers, 'content-type') as string | undefined
+				)?.startsWith('text/event-stream'))
 
 		const format = isSSE
 			? (data: string) => `data: ${data}\n\n`
@@ -289,12 +350,9 @@ export const createStreamHandler =
 				: 'text/plain'
 
 		if (set?.headers) {
-			if (!set.headers['transfer-encoding'])
-				set.headers['transfer-encoding'] = 'chunked'
-			if (!set.headers['content-type'])
-				set.headers['content-type'] = contentType
-			if (!set.headers['cache-control'])
-				set.headers['cache-control'] = 'no-cache'
+			setHeaderIfMissing(set.headers, 'transfer-encoding', 'chunked')
+			setHeaderIfMissing(set.headers, 'content-type', contentType)
+			setHeaderIfMissing(set.headers, 'cache-control', 'no-cache')
 		} else
 			set = {
 				status: 200,
@@ -440,7 +498,11 @@ export const handleSet = (set: Context['set']) => {
 	if (set.cookie && isNotEmpty(set.cookie)) {
 		const cookie = serializeCookie(set.cookie)
 
-		if (cookie) set.headers['set-cookie'] = cookie
+		if (cookie)
+			mergeSetCookie(
+				set.headers,
+				Array.isArray(cookie) ? cookie : [cookie]
+			)
 	}
 
 	if (set.headers['set-cookie'] && Array.isArray(set.headers['set-cookie'])) {
@@ -468,7 +530,7 @@ export function mergeHeaders(
 			if (key === 'set-cookie') {
 				if (headers.has('set-cookie')) continue
 
-				for (const cookie of setHeaders.getSetCookie())
+				for (const cookie of getSetCookie(setHeaders))
 					headers.append('set-cookie', cookie)
 			} else if (!responseHeaders.has(key))
 				headers.set(key, setHeaders?.get(key) ?? '')
