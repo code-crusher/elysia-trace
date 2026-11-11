@@ -81,6 +81,34 @@ describe('mergeDeep', () => {
 		expect(response).toBe('ok')
 	})
 
+	it('does not walk an object merged with itself', () => {
+		let accessed = 0
+
+		class Service {
+			find() {
+				return 1
+			}
+		}
+
+		const service = new Service()
+
+		// A public field, like an ORM client, is enumerable and would be
+		// walked by mergeDeep when both sides hold the same instance
+		Object.defineProperty(service, 'db', {
+			enumerable: true,
+			get() {
+				accessed++
+
+				return { value: 1 }
+			}
+		})
+
+		const result = mergeDeep({ service }, { service })
+
+		expect(accessed).toBe(0)
+		expect(result.service).toBe(service)
+	})
+
 	it('handle freezed object', () => {
 		new Elysia()
 			.decorate('db', Object.freeze({ hello: 'world' }))

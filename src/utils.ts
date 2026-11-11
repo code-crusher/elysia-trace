@@ -93,6 +93,10 @@ export const mergeDeep = <
 
 	if (!isObject(target) || !isObject(source)) return target as A & B
 
+	// Merging an object with itself is a no-op, and walking a large
+	// decorated class instance on every `.use()` is expensive
+	if ((target as object) === (source as object)) return target as A & B
+
 	if (seen.has(source)) return target as A & B
 	seen.add(source)
 
