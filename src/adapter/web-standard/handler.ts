@@ -161,12 +161,12 @@ export const mapResponse = (
 
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
-				if (Array.isArray(response))
-					return new Response(JSON.stringify(response), {
-						headers: {
-							'Content-Type': 'application/json'
-						}
-					}) as any
+				if (Array.isArray(response)) {
+					if (!set.headers['content-type'])
+						set.headers['content-type'] = 'application/json'
+
+					return new Response(JSON.stringify(response), set as any) as any
+				}
 
 				// @ts-expect-error
 				if (typeof response?.toResponse === 'function')
@@ -318,12 +318,12 @@ export const mapEarlyResponse = (
 
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
-				if (Array.isArray(response))
-					return new Response(JSON.stringify(response), {
-						headers: {
-							'Content-Type': 'application/json'
-						}
-					}) as any
+				if (Array.isArray(response)) {
+					if (!set.headers['content-type'])
+						set.headers['content-type'] = 'application/json'
+
+					return new Response(JSON.stringify(response), set as any) as any
+				}
 
 				if ('charCodeAt' in (response as any)) {
 					const code = (response as any).charCodeAt(0)
@@ -450,12 +450,12 @@ export const mapEarlyResponse = (
 
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
-				if (Array.isArray(response))
-					return new Response(JSON.stringify(response), {
-						headers: {
-							'Content-Type': 'application/json'
-						}
-					}) as any
+				if (Array.isArray(response)) {
+					if (!set.headers['content-type'])
+						set.headers['content-type'] = 'application/json'
+
+					return new Response(JSON.stringify(response), set as any) as any
+				}
 
 				if ('charCodeAt' in (response as any)) {
 					const code = (response as any).charCodeAt(0)

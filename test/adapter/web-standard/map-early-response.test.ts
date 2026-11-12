@@ -31,6 +31,8 @@ class Student {
 
 class CustomResponse extends Response {}
 
+class CustomArray extends Array {}
+
 describe('Web Standard - Map Early Response', () => {
 	it('map string', async () => {
 		const response = mapEarlyResponse('Shiroko', defaultContext)
@@ -335,6 +337,29 @@ describe('Web Standard - Map Early Response', () => {
 			'name=hina',
 			'affiliation=gehenna'
 		])
+	})
+
+	it('map Array subclass with custom context', async () => {
+		const body = [{ name: 'Shiroko' }]
+		const context = createContext()
+		const response = mapEarlyResponse(CustomArray.from(body), context)
+
+		expect(response).toBeInstanceOf(Response)
+		expect(await response?.json()).toEqual(body)
+		expect(response?.status).toBe(418)
+		expect(response?.headers.toJSON()).toEqual({
+			...context.headers,
+			'content-type': 'application/json'
+		})
+	})
+
+	it('map Array subclass without custom context', async () => {
+		const body = [{ name: 'Shiroko' }]
+		const response = mapEarlyResponse(CustomArray.from(body), defaultContext)
+
+		expect(response).toBeInstanceOf(Response)
+		expect(await response?.json()).toEqual(body)
+		expect(response?.status).toBe(200)
 	})
 
 	it('map toResponse', async () => {

@@ -127,8 +127,9 @@ export const mapResponse = (
 
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
+				// I have nothing but my burger and I want nothing more
 				if (Array.isArray(response))
-					return Response.json(response) as any
+					return Response.json(response, set as any) as any
 
 				// @ts-expect-error
 				if (typeof response?.toResponse === 'function')
@@ -268,7 +269,7 @@ export const mapEarlyResponse = (
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
 				if (Array.isArray(response))
-					return Response.json(response) as any
+					return Response.json(response, set as any) as any
 
 				if ('charCodeAt' in (response as any)) {
 					const code = (response as any).charCodeAt(0)
@@ -379,7 +380,7 @@ export const mapEarlyResponse = (
 				// custom class with an array-like value
 				// eg. Bun.sql`` result
 				if (Array.isArray(response))
-					return Response.json(response) as any
+					return Response.json(response, set as any) as any
 
 				if ('charCodeAt' in (response as any)) {
 					const code = (response as any).charCodeAt(0)

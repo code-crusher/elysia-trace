@@ -24,6 +24,8 @@ class Student {
 
 class CustomResponse extends Response {}
 
+class CustomArray extends Array {}
+
 describe('Web Standard - Map Response', () => {
 	it('map string', async () => {
 		const response = mapResponse('Shiroko', createContext())
@@ -358,6 +360,21 @@ describe('Web Standard - Map Response', () => {
 			'name=hina',
 			'affiliation=gehenna'
 		])
+	})
+
+	it('map Array subclass with custom context', async () => {
+		const body = [{ name: 'Shiroko' }]
+		const response = mapResponse(CustomArray.from(body), {
+			...createContext(),
+			status: 201,
+			headers: { 'x-a': '1' }
+		})
+
+		expect(response).toBeInstanceOf(Response)
+		expect(await response.json()).toEqual(body)
+		expect(response.status).toBe(201)
+		expect(response.headers.get('x-a')).toBe('1')
+		expect(response.headers.get('content-type')).toBe('application/json')
 	})
 
 	it('map toResponse', async () => {
