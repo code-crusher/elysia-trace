@@ -148,6 +148,28 @@ export interface SocketAddress {
 	family: 'IPv4' | 'IPv6'
 }
 
+/**
+ * Minimal shape of Deno's `ServeHandlerInfo`.
+ *
+ * Deno passes this as the second argument to `Deno.serve`'s handler, which is
+ * `Elysia.fetch`.
+ */
+export interface ServeHandlerInfo {
+	/**
+	 * Address of the remote peer, either a `Deno.NetAddr` or `Deno.UnixAddr`
+	 */
+	remoteAddr?: {
+		transport?: string
+		hostname?: string
+		port?: number
+		path?: string
+	}
+	/**
+	 * Resolves when the response is completed
+	 */
+	completed?: Promise<void>
+}
+
 export interface ServerOptions extends Disposable {
 	/**
 	 * Stop listening to prevent new connections from being accepted.

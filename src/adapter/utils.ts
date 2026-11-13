@@ -5,6 +5,34 @@ import type { Context } from '../context'
 import { env } from '../universal'
 import { isBun } from '../universal/utils'
 import { MaybePromise } from '../types'
+import type { ServeHandlerInfo, Server } from '../universal/server'
+
+/**
+ * Resolve the peer address of a connection from the runtime specific
+ * second argument passed to the fetch handler.
+ *
+ * - Deno passes `ServeHandlerInfo`, the address is `info.remoteAddr`
+ * - Bun passes the `Bun.Server` instance, the address is retrieved from
+ *   `server.requestIP(request)`
+ * - Other runtime may pass nothing, resulting in `undefined`
+ */
+export const resolvePeerAddress = (
+	request: Request,
+	serverOrInfo?: ServeHandlerInfo | Server
+): string | undefined => {
+	// `app.handle` is commonly passed directly to `Array#map` which forwards
+	// the index as the second argument
+	if (!serverOrInfo || typeof serverOrInfo !== 'object') return
+
+	if ('remoteAddr' in serverOrInfo)
+		return serverOrInfo.remoteAddr?.hostname ?? serverOrInfo.remoteAddr?.path
+
+	if (
+		'requestIP' in serverOrInfo &&
+		typeof serverOrInfo.requestIP === 'function'
+	)
+		return serverOrInfo.requestIP(request)?.address
+}
 
 export const handleFile = (
 	response: File | Blob,

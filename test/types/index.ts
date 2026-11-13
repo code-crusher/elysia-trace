@@ -2987,3 +2987,24 @@ type a = keyof {}
 		response: { 200: t.Object({ text: t.String() }) }
 	})
 }
+
+// ? addr from runtime second argument (issue #2011)
+{
+	new Elysia().get('/', ({ addr }) => {
+		expectTypeOf<typeof addr>().toEqualTypeOf<string | undefined>()
+	})
+
+	const app = new Elysia()
+
+	app.handle(
+		new Request('http://localhost'),
+		// Deno's ServeHandlerInfo
+		{
+			remoteAddr: {
+				transport: 'tcp',
+				hostname: '127.0.0.1',
+				port: 1234
+			}
+		}
+	)
+}

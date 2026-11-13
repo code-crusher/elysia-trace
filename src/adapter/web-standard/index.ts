@@ -6,6 +6,7 @@ import {
 } from './handler'
 
 import type { ElysiaAdapter } from '../types'
+import { resolvePeerAddress } from '../utils'
 
 export const WebStandardAdapter: ElysiaAdapter = {
 	name: 'web-standard',
@@ -66,7 +67,12 @@ export const WebStandardAdapter: ElysiaAdapter = {
 		}
 	},
 	composeGeneralHandler: {
-		parameters: 'r',
+		// `si` is the runtime specific second argument passed to the handler
+		// eg. `ServeHandlerInfo` in Deno or `Bun.Server` in Bun
+		parameters: 'r,si',
+		inject: {
+			resolvePeerAddress
+		},
 		createContext(app) {
 			let decoratorsLiteral = ''
 			let fnLiteral = ''
@@ -108,6 +114,7 @@ export const WebStandardAdapter: ElysiaAdapter = {
 			// @ts-expect-error private
 			if (app.inference.server)
 				fnLiteral += `,get server(){return app.getServer()}`
+			fnLiteral += `,get addr(){return resolvePeerAddress(r,si)}`
 			if (hasTrace) fnLiteral += ',[ELYSIA_REQUEST_ID]:id'
 			fnLiteral += decoratorsLiteral
 			fnLiteral += `}\n`

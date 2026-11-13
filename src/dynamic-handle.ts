@@ -17,6 +17,8 @@ import {
 	type ElysiaTypeCheck
 } from './schema'
 import type { Handler, LifeCycleStore, SchemaValidator } from './types'
+import type { ServeHandlerInfo, Server } from './universal/server'
+import { resolvePeerAddress } from './adapter/utils'
 import {
 	hasSetImmediate,
 	mergeCookie,
@@ -60,7 +62,10 @@ export const createDynamicHandler = (app: AnyElysia) => {
 	// @ts-expect-error
 	const defaultHeader = app.setHeaders
 
-	return async (request: Request): Promise<Response> => {
+	return async (
+		request: Request,
+		serverOrInfo?: ServeHandlerInfo | Server
+	): Promise<Response> => {
 		const url = request.url,
 			s = url.indexOf('/', 11),
 			qi = url.indexOf('?', s + 1),
@@ -85,7 +90,8 @@ export const createDynamicHandler = (app: AnyElysia) => {
 				qi,
 				error: status,
 				status,
-				redirect
+				redirect,
+				addr: resolvePeerAddress(request, serverOrInfo)
 			}
 		) as unknown as Context & {
 			response: unknown

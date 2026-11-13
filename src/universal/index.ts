@@ -4,6 +4,7 @@ export type {
 	ErrorLike,
 	GenericServeOptions,
 	Serve,
+	ServeHandlerInfo,
 	ServeOptions,
 	Server,
 	ServerWebSocketSendStatus,

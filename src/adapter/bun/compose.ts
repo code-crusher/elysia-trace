@@ -1,4 +1,5 @@
 import { mapEarlyResponse } from './handler'
+import { resolvePeerAddress } from '../utils'
 import { sucrose, type Sucrose } from '../../sucrose'
 import { createHoc, createOnRequestHandler, isAsync } from '../../compose'
 
@@ -84,6 +85,8 @@ const createContext = (
 
 	if (inference.server) fnLiteral += `,get server(){return app.getServer()}`
 
+	fnLiteral += `,get addr(){return resolvePeerAddress(request,si)}`
+
 	if (hasTrace) fnLiteral += ',[ELYSIA_REQUEST_ID]:id'
 
 	{
@@ -131,12 +134,13 @@ export const createBunRouteHandler = (app: AnyElysia, route: InternalRoute) => {
 		allocateIf(`ELYSIA_TRACE=data.ELYSIA_TRACE,`, hasTrace) +
 		allocateIf(`trace=data.trace,`, hasTrace) +
 		allocateIf(`hoc=data.hoc,`, hasHoc) +
-		'status=data.status\n'
+		'status=data.status,' +
+		'resolvePeerAddress=data.resolvePeerAddress\n'
 
 	if (app.event.request?.length)
 		fnLiteral += `const onRequest=app.event.request.map(x=>x.fn)\n`
 
-	fnLiteral += `${app.event.request?.find(isAsync) ? 'async' : ''} function map(request){`
+	fnLiteral += `${app.event.request?.find(isAsync) ? 'async' : ''} function map(request,si){`
 
 	const needsQuery =
 		inference.query ||
@@ -174,6 +178,7 @@ export const createBunRouteHandler = (app: AnyElysia, route: InternalRoute) => {
 		ELYSIA_TRACE: hasTrace ? ELYSIA_TRACE : undefined,
 		ELYSIA_REQUEST_ID: hasTrace ? ELYSIA_REQUEST_ID : undefined,
 		trace: hasTrace ? app.event.trace?.map((x) => x?.fn ?? x) : undefined,
-		mapEarlyResponse: mapEarlyResponse
+		mapEarlyResponse,
+		resolvePeerAddress
 	})
 }

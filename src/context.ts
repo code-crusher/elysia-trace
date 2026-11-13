@@ -122,6 +122,20 @@ export type ErrorContext<
 		route: string
 		request: Request
 		store: Singleton['store']
+
+		/**
+		 * Address of the peer connecting to the server, either an IP address
+		 * or a unix socket path.
+		 *
+		 * Populated from the second argument passed to the fetch handler:
+		 * - Deno from `ServeHandlerInfo.remoteAddr`
+		 * - Bun from `server.requestIP(request)`
+		 *
+		 * `undefined` on runtime that doesn't expose a peer address
+		 * (eg. Cloudflare Worker) or when the request doesn't come from a
+		 * connection (eg. `app.handle`).
+		 */
+		addr?: string
 	} & Singleton['decorator'] &
 		Singleton['derive'] &
 		Singleton['resolve']
@@ -179,6 +193,11 @@ export type Context<
 
 		server: Server | null
 		redirect: Redirect
+
+		/**
+		 * Peer address of the connection, see {@link Context.addr}
+		 */
+		addr?: string
 
 		set: {
 			headers: HTTPHeaders
@@ -243,6 +262,11 @@ export type PreContext<
 
 		redirect: Redirect
 		server: Server | null
+
+		/**
+		 * Peer address of the connection, see {@link Context.addr}
+		 */
+		addr?: string
 
 		set: {
 			headers: HTTPHeaders

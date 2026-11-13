@@ -21,7 +21,12 @@ import { WebStandardAdapter } from './adapter/web-standard/index'
 import type { ElysiaAdapter } from './adapter/types'
 
 import { env } from './universal/env'
-import type { ListenCallback, Serve, Server } from './universal/server'
+import type {
+	ListenCallback,
+	Serve,
+	ServeHandlerInfo,
+	Server
+} from './universal/server'
 
 import {
 	cloneInference,
@@ -8128,14 +8133,18 @@ export default class Elysia<
 		return this
 	}
 
-	handle = async (request: Request) => this.fetch(request)
+	handle = async (request: Request, serverOrInfo?: ServeHandlerInfo | Server) =>
+		this.fetch(request, serverOrInfo)
 
 	/**
 	 * Use handle can be either sync or async to save performance.
 	 *
 	 * Beside benchmark purpose, please use 'handle' instead.
 	 */
-	get fetch(): (request: Request) => MaybePromise<Response> {
+	get fetch(): (
+		request: Request,
+		serverOrInfo?: ServeHandlerInfo | Server
+	) => MaybePromise<Response> {
 		const fetch = this.config.aot
 			? composeGeneralHandler(this)
 			: createDynamicHandler(this)
@@ -8366,6 +8375,9 @@ export type {
 
 export { env } from './universal/env'
 export { file, ElysiaFile } from './universal/file'
+export type {
+	ServeHandlerInfo
+} from './universal/server'
 export type { ElysiaAdapter } from './adapter'
 
 export { TypeSystemPolicy } from '@sinclair/typebox/system'

@@ -4,7 +4,7 @@ import type { TSchema } from '@sinclair/typebox'
 import { WebStandardAdapter } from '../web-standard/index'
 import { parseSetCookies } from '../utils'
 import type { ElysiaAdapter } from '../types'
-import type { Serve } from '../../universal/server'
+import type { Serve, Server } from '../../universal/server'
 
 import { createBunRouteHandler } from './compose'
 import { createNativeStaticHandler } from './handler-native'
@@ -139,11 +139,12 @@ const mapRoutes = (app: AnyElysia) => {
 
 		const handler = app.config.precompile
 			? createBunRouteHandler(app, route)
-			: (request: Request) => {
-					if (compiled) return compiled(request)
+			: (request: Request, server: Server) => {
+					if (compiled) return compiled(request, server)
 
 					return (compiled = createBunRouteHandler(app, route))(
-						request
+						request,
+						server
 					)
 				}
 
