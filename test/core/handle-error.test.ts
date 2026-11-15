@@ -84,6 +84,76 @@ describe('Handle Error', () => {
 		expect(res.status).toBe(404)
 	})
 
+	it.each([true, false])(
+		"onError returning status must not corrupt the shared NotFoundError (aot: %p)",
+		async (aot) => {
+			const seen: [string | number | undefined, string | undefined][] = []
+
+			const app = new Elysia({ aot })
+				.onError(({ error, status }) => {
+					if (error instanceof NotFoundError) {
+						seen.push([error.status, error.message])
+
+						return status(404, 'custom not found body')
+					}
+				})
+				.get('/', () => 'Hi')
+
+			for (let i = 0; i < 2; i++) {
+				const res = await app.handle(req('/missing'))
+
+				expect(res.status).toBe(404)
+				expect(await res.text()).toBe('custom not found body')
+			}
+
+			// The NotFoundError thrown for an unmatched route is a single
+			// instance shared by every request — if onError writes back onto
+			// it, every 404 after the first is corrupted and error-translation
+			// logic misbehaves (issue #1969)
+			expect(seen).toEqual([
+				[404, 'NOT_FOUND'],
+				[404, 'NOT_FOUND']
+			])
+		}
+	)
+
+	it('custom error translation stays correct across multiple 404s (#1969)', async () => {
+		const app = new Elysia()
+			.onError(({ error, set }) => {
+				if (error instanceof NotFoundError) {
+					if (error.status !== 404) {
+						set.status = 500
+
+						return 'translation broke'
+					}
+
+					set.status = 404
+
+					return 'not found'
+				}
+			})
+			.get('/', () => 'Hi')
+
+		for (let i = 0; i < 3; i++) {
+			const res = await app.handle(req('/missing'))
+
+			expect(res.status).toBe(404)
+			expect(await res.text()).toBe('not found')
+		}
+	})
+
+	it('onError status response overrides the thrown error status', async () => {
+		// I have nothing but my burger and I want nothing more
+		const app = new Elysia()
+			.onError(({ status }) => status(418, "I'm a teapot"))
+			.get('/', () => 'Hi')
+
+		const res = await app.handle(req('/missing'))
+
+		expect(res.status).toBe(418)
+		expect(await res.text()).toBe("I'm a teapot")
+	})
+
 	it('transform any to error', async () => {
 		const app = new Elysia()
 			.onError(async ({ set }) => {

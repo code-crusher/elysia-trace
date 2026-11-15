@@ -2643,11 +2643,12 @@ export const composeErrorHandler = (app: AnyElysia) => {
 					`if(_r instanceof Response){` +
 					afterResponse() +
 					`return mapResponse(_r,set${adapter.mapResponseContext})}` +
-					`if(_r instanceof ElysiaCustomStatusResponse){` +
-					`error.status=error.code\n` +
-					`error.message=error.response` +
-					`}` +
-					`if(set.status===200||!set.status)set.status=error.status\n`
+					// Read the status from the returned response, not the
+					// thrown error as the error may be a shared instance
+					// (eg. NotFoundError) reused across requests
+					`if(_r instanceof ElysiaCustomStatusResponse)` +
+					`set.status=_r.code\n` +
+					`else if(set.status===200||!set.status)set.status=error.status\n`
 
 				const mapResponseReporter = report('mapResponse', {
 					total: hooks.mapResponse?.length,
