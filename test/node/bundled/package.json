@@ -1,0 +1,7 @@
+{
+	"type": "module",
+	"dependencies": {
+		"elysia": "../../..",
+		"esbuild": "0.25.4"
+	}
+}
