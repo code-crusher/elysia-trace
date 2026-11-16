@@ -478,4 +478,43 @@ describe('guard', () => {
 
 		expect(error).toBe(422)
 	})
+
+	it('inherits detail for routes with their own hook', () => {
+		const app = new Elysia().guard(
+			{ detail: { tags: ['Admin'] } },
+			(app) =>
+				app
+					.get('/plain', () => 'ok')
+					.post(
+						'/with-body',
+						({ body }) => body,
+						{ body: t.Object({ name: t.String() }) }
+					)
+		)
+
+		const plain = app.routes.find((r) => r.path === '/plain')
+		const withBody = app.routes.find((r) => r.path === '/with-body')
+
+		expect(plain?.hooks.detail).toEqual({ tags: ['Admin'] })
+		expect(withBody?.hooks.detail).toEqual({ tags: ['Admin'] })
+	})
+
+	it('route detail overrides guard detail', () => {
+		const app = new Elysia().guard(
+			{ detail: { tags: ['Admin'] } },
+			(app) =>
+				app.get(
+					'/own',
+					() => 'ok',
+					{ detail: { tags: ['Public'], summary: 'own' } }
+				)
+		)
+
+		const route = app.routes.find((r) => r.path === '/own')
+
+		expect(route?.hooks.detail).toEqual({
+			tags: ['Public'],
+			summary: 'own'
+		})
+	})
 })

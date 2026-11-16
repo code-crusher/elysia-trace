@@ -321,9 +321,9 @@ export const mergeHook = (
 		type: a.type || b.type,
 		detail: mergeDeep(
 			// @ts-ignore
-			b.detail ?? {},
+			Object.assign({}, a.detail ?? {}),
 			// @ts-ignore
-			a.detail ?? {}
+			b.detail ?? {}
 		),
 		parse: mergeObjectArray(a.parse as any, b.parse),
 		transform: mergeObjectArray(a.transform, b.transform),
