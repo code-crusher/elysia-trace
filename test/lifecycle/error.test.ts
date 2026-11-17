@@ -32,6 +32,34 @@ describe('error', () => {
 		expect(notFound).toBe('UwU')
 	})
 
+	it.each([true, false])(
+		'respect custom content-type set in onError with aot: %p',
+		async (aot) => {
+			const app = new Elysia({ aot }).onError(({ code, set }) => {
+				if (code === 'NOT_FOUND') {
+					set.headers['content-type'] = 'application/problem+json'
+
+					return { status: 404, title: 'Not Found' }
+				}
+			})
+
+			const response = await app.handle(req('/not/found'))
+
+			expect(response.headers.get('content-type')).toBe(
+				'application/problem+json'
+			)
+			expect(await response.json()).toEqual({
+				status: 404,
+				title: 'Not Found'
+			})
+
+			if (aot)
+				// ? aot: false uses the dynamic handler which doesn't apply
+				// error.status to set.status when onError returns a value
+				expect(response.status).toBe(404)
+		}
+	)
+
 	it('handle parse error', async () => {
 		const app = new Elysia()
 			.onError(({ code }) => {
