@@ -143,6 +143,74 @@ describe('Validator Additional Case', () => {
 		expect(invalidBody.status).toBe(422)
 	})
 
+	it('merge guard schema with route local schema on the same slot', async () => {
+		const guard = new Elysia({ name: 'guard' }).guard({
+			as: 'scoped',
+			body: t.Object({ orgField: t.String() })
+		})
+
+		const app = new Elysia()
+			.use(guard)
+			.post('/', ({ body }) => body, {
+				body: t.Object({ content: t.String() })
+			})
+
+		// Both the guard's and the route's fields survive decoding
+		const res = await app.handle(
+			post('/', {
+				orgField: 'should-be-required',
+				content: 'hi'
+			})
+		)
+
+		expect(res.status).toBe(200)
+		expect(await res.json()).toEqual({
+			orgField: 'should-be-required',
+			content: 'hi'
+		})
+
+		// The guard's requirement is enforced, not silently dropped
+		const invalid = await app.handle(post('/', { content: 'hi' }))
+
+		expect(invalid.status).toBe(422)
+	})
+
+	it('merge guard schema with route local schema on headers slot', async () => {
+		const app = new Elysia()
+			.guard({
+				as: 'scoped',
+				headers: t.Object({ 'x-guard': t.String() })
+			})
+			.get('/', ({ headers }) => headers, {
+				headers: t.Object({ 'x-route': t.String() })
+			})
+
+		const res = await app.handle(
+			new Request('http://localhost/', {
+				headers: {
+					'x-guard': 'a',
+					'x-route': 'b'
+				}
+			})
+		)
+
+		expect(res.status).toBe(200)
+		expect(await res.json()).toEqual({
+			'x-guard': 'a',
+			'x-route': 'b'
+		})
+
+		const invalid = await app.handle(
+			new Request('http://localhost/', {
+				headers: {
+					'x-route': 'b'
+				}
+			})
+		)
+
+		expect(invalid.status).toBe(422)
+	})
+
 	it('inherits cookie on guard', async () => {
 		const app = new Elysia()
 			.guard({

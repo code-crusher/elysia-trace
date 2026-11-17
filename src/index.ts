@@ -49,7 +49,8 @@ import {
 	getCookieValidator,
 	ElysiaTypeCheck,
 	hasType,
-	resolveSchema
+	resolveSchema,
+	mergeObjectSchemas
 } from './schema'
 import {
 	composeHandler,
@@ -560,12 +561,43 @@ export default class Elysia<
 
 		const instanceValidator = this.validator.getCandidate()
 
+		// Merge a route's local schema with the schema inherited from guards
+		// for the same slot (body, headers, etc.). `??` would silently drop
+		// the guard's constraint whenever the route defines its own schema.
+		// I have nothing but my burger and I want nothing more
+		const mergeSchemaValue = <T>(a: T | undefined, b: T | undefined) => {
+			if (!b) return a
+			if (!a) return b
+
+			// Only object schemas can be combined; otherwise keep the
+			// route-local schema (b) as before.
+			if ((a as any).type === 'object' && (b as any).type === 'object')
+				return mergeObjectSchemas([a as any, b as any]).schema ?? b
+
+			return b
+		}
+
 		const cloned = {
-			body: localHook?.body ?? (instanceValidator?.body as any),
-			headers: localHook?.headers ?? (instanceValidator?.headers as any),
-			params: localHook?.params ?? (instanceValidator?.params as any),
-			query: localHook?.query ?? (instanceValidator?.query as any),
-			cookie: localHook?.cookie ?? (instanceValidator?.cookie as any),
+			body: mergeSchemaValue(
+				instanceValidator?.body,
+				localHook?.body as any
+			),
+			headers: mergeSchemaValue(
+				instanceValidator?.headers,
+				localHook?.headers as any
+			),
+			params: mergeSchemaValue(
+				instanceValidator?.params,
+				localHook?.params as any
+			),
+			query: mergeSchemaValue(
+				instanceValidator?.query,
+				localHook?.query as any
+			),
+			cookie: mergeSchemaValue(
+				instanceValidator?.cookie,
+				localHook?.cookie as any
+			),
 			response:
 				localHook?.response ?? (instanceValidator?.response as any)
 		}
