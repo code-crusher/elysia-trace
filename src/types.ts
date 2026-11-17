@@ -894,11 +894,18 @@ export type MacroContextBlacklistKey =
 	| 'tags'
 	| keyof RouteSchema
 
+// An early return branch (e.g. `if (!enabled) return`) makes a macro
+// function return `... | void`; drop the void branch so the macro
+// stays inert instead of collapsing the route context (see #1959)
+type WithoutVoid<T> = [Exclude<T, void | undefined>] extends [never]
+	? {}
+	: Exclude<T, void | undefined>
+
 type ReturnTypeIfPossible<T, Enabled = true> = false extends Enabled
 	? {}
 	: T extends (...a: any) => infer R
-		? R
-		: T
+		? WithoutVoid<R>
+		: WithoutVoid<T>
 
 type AnyElysiaCustomStatusResponse = ElysiaCustomStatusResponse<any, any, any>
 

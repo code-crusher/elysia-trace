@@ -319,3 +319,42 @@ const app = new Elysia()
 		})
 		.listen(3000)
 }
+
+// macro with early return branch should still resolve the route context
+{
+	new Elysia()
+		.macro({
+			auth(enabled: boolean) {
+				if (!enabled) return
+				return {
+					resolve: () => ({ user: { id: 'u1' as const } })
+				}
+			}
+		})
+		.get(
+			'/me',
+			(ctx) => {
+				expectTypeOf(ctx.user).toEqualTypeOf<{ id: 'u1' }>()
+
+				return ctx.user
+			},
+			{ auth: true }
+		)
+}
+
+// macro with only an early return stays inert instead of collapsing the route context
+{
+	new Elysia()
+		.macro({
+			noop(): void {}
+		})
+		.get(
+			'/noop',
+			(ctx) => {
+				expectTypeOf(ctx).not.toHaveProperty('user')
+
+				return 'ok'
+			},
+			{ noop: true }
+		)
+}
