@@ -722,7 +722,7 @@ export class Elysia<
 		this['~scopeChildren'] = undefined
 
 		if (config) {
-			const { prefix, name, seed, adapter } = config
+			const { prefix, name, seed, adapter, detail, tags } = config
 
 			this['~Prefix'] = (
 				prefix
@@ -741,6 +741,19 @@ export class Elysia<
 						serializeMacroSeed
 					)
 				)
+
+			// OpenAPI metadata of the instance itself: a local chain node so
+			// its routes carry it, whether read here or through a `.use()`
+			// (the parent composes the inherited chain). `tags` overrides
+			// `detail.tags`, as in Elysia 1
+			if (isNotEmpty(detail) || tags) {
+				const added: Partial<AppHook> = nullObject()
+				added.detail = tags
+					? { ...detail, tags }
+					: Object.assign(nullObject(), detail)
+
+				this.#pushChainNode(added as Partial<AppHook>, 'local')
+			}
 
 			if (adapter?.setup) this.#useFn(adapter.setup)
 		} else this['~Prefix'] = undefined as any

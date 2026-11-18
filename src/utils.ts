@@ -580,7 +580,14 @@ export function flattenChain(
 				]
 			)
 
-			if (added)
+			if (added) {
+				// the OpenAPI `tags` shorthand is `detail.tags`, it overrides it
+				// (see the constructor): fold before the walk, so the order the
+				// keys appear in plays no part
+				const tags = (added as any).tags
+				if (tags)
+					(added as any).detail = { ...(added as any).detail, tags }
+
 				for (const key in added) {
 					const v = (added as any)[key]
 					// `~deriveEntries` is rebuilt per occurrence below
@@ -641,8 +648,17 @@ export function flattenChain(
 
 						held[key] = rank
 						;(result as any)[key] = v
+					} else if (key === 'detail' && (result as any).detail) {
+						// nodes are visited newest first: merge the older detail
+						// under the newer one, per key. A copy first: chain nodes
+						// and their flattened memo are shared across routes
+						;(result as any).detail = mergeDeep(
+							mergeDeep(nullObject(), (result as any).detail),
+							v
+						)
 					} else (result as any)[key] = v
 				}
+			}
 
 			if (bits) {
 				layer ??= new Map()
@@ -1249,6 +1265,16 @@ export function mergeHook(
 	for (const key of hookEventKeys)
 		if ((a as any)[key] || (b as any)[key])
 			(a as any)[key] = prepend((a as any)[key], (b as any)[key])
+
+	// OpenAPI detail: a is the route side, it wins per key; b (the instance's
+	// flattened chain) fills the gaps. A copy of b first: its nodes are shared
+	// and memoized across routes, and a's is the user's own object
+	const bDetail = (b as any).detail
+	if ((a as any).detail || bDetail)
+		(a as any).detail = mergeDeep(
+			mergeDeep(nullObject(), bDetail),
+			(a as any).detail
+		)
 
 	if (a.schemas || b.schemas) a.schemas = prepend(a.schemas, b.schemas)
 

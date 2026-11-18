@@ -335,6 +335,10 @@ export interface AppHook {
 	cookie: AnySchema
 	response: AnySchema | Record<number, AnySchema>
 	schemas: RouteSchema[]
+	// OpenAPI metadata a chain node may carry: the constructor's config
+	// `detail`/`tags` (see Elysia's constructor), a macro's `detail`
+	detail?: DocumentDecoration
+	tags?: DocumentDecoration['tags']
 }
 
 export interface InputSchema<Name extends string = string> {

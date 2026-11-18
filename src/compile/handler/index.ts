@@ -70,12 +70,23 @@ function applyHook(
 		hook = mergeHook(cloneHook(localHook) as any, appHook as any)
 	else {
 		const base = localHook ? cloneHook(localHook as any) : appHook
-		if (!rootHook) return base as any
+		if (!rootHook) return foldTags(base) as any
 
 		hook = base ?? nullObject()
 	}
 
 	if (rootHook) mergeHook(hook, rootHook as any)
+
+	return foldTags(hook)
+}
+
+// the route's `tags` shorthand is `detail.tags` (it overrides it, as in
+// Elysia 1); `hook` is already a private clone here
+const foldTags = (hook: any) => {
+	if (hook?.tags === undefined) return hook
+
+	hook.detail = { ...hook.detail, tags: hook.tags }
+	delete hook.tags
 
 	return hook
 }
