@@ -10,11 +10,18 @@ setInterval(async () => {
 
 	const value = await response.text()
 
-	if (value === 'Elysia on Cloudflare Worker!' && response.status) {
-		console.log('✅ Cloudflare Worker works')
-		server.kill('SIGKILL')
-		process.exit(0)
-	}
+	if (value !== 'Elysia on Cloudflare Worker!' || !response.status) return
+
+	// Dynamic mode is documented as supported, make sure it runs too
+	const dynamic = await fetch('http://localhost:8787/dynamic').catch(() => {})
+	if (!dynamic) return
+
+	if ((await dynamic.text()) !== 'Elysia on Cloudflare Worker (dynamic)!')
+		return
+
+	console.log('✅ Cloudflare Worker works')
+	server.kill('SIGKILL')
+	process.exit(0)
 }, 500)
 
 setTimeout(() => {

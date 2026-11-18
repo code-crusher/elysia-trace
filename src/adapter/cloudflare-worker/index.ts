@@ -3,7 +3,15 @@ import { WebStandardAdapter } from '../web-standard/index'
 import { composeErrorHandler } from '../../compose'
 
 /**
- * Cloudflare Adapter (Experimental)
+ * Cloudflare Adapter
+ *
+ * Supports both Ahead of Time (default) and dynamic (`aot: false`) mode.
+ *
+ * Known limitations of the Cloudflare Workers runtime:
+ * - `Elysia.file`, Static Plugin and OpenAPI Type Gen don't work because `fs` is unavailable
+ * - `Response` can't be created outside of a request handler, so inline static value is not supported
+ * - WebSocket is not supported
+ *
  * @see https://elysiajs.com/integrations/cloudflare-worker
  *
  * @example
@@ -43,8 +51,13 @@ export const CloudflareAdapter: ElysiaAdapter = {
 		}
 	},
 	beforeCompile(app) {
+		// Dynamic mode registers route handler with `compile: undefined`
+		// and create its own handler, so there's nothing to precompile
+		if (!app.config.aot) return
+
 		// @ts-ignore
 		app.handleError = composeErrorHandler(app)
+		// I have nothing but my burger and I want nothing more
 		for (const route of app.routes) route.compile()
 	},
 	listen() {
