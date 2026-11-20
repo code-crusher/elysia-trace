@@ -35,6 +35,36 @@ export type DynamicHandler = {
 	route: string
 }
 
+// The query schema is immutable after a route is registered, so which
+// properties accept a comma separated array is resolved once per validator
+// instead of re-walking the schema on every request.
+// Mirrors the `arrayProperties` map that the AOT path precomputes in
+// composeHandler (compose.ts), which is built exactly once at compile time.
+// I have nothing but my burger and I want nothing more
+const queryArrayProperties = new WeakMap<ElysiaTypeCheck<any>, string[]>()
+
+const getQueryArrayProperties = (validator: ElysiaTypeCheck<any>): string[] => {
+	const cached = queryArrayProperties.get(validator)
+	if (cached) return cached
+
+	let schema = validator.schema
+	if (schema.$defs?.[schema.$ref]) schema = schema.$defs[schema.$ref]
+
+	const arrayProperties: string[] = []
+	const properties = getSchemaProperties(schema)
+
+	if (properties)
+		for (const property of Object.keys(properties)) {
+			const value = properties[property]
+			if (value.type === 'array' || value.items?.type === 'string')
+				arrayProperties.push(property)
+		}
+
+	queryArrayProperties.set(validator, arrayProperties)
+
+	return arrayProperties
+}
+
 async function validateStandardSchema(
 	type: string,
 	validator: ElysiaTypeCheck<any>,
@@ -420,25 +450,20 @@ export const createDynamicHandler = (app: AnyElysia) => {
 					context.params = validator.params.Decode(context.params)
 
 				if (validator.query?.schema) {
-					let schema = validator.query.schema
-					if (schema.$defs?.[schema.$ref])
-						schema = schema.$defs[schema.$ref]
+					const arrayProperties = getQueryArrayProperties(
+						validator.query
+					)
 
-					const properties = getSchemaProperties(schema)
+					for (let i = 0; i < arrayProperties.length; i++) {
+						const property = arrayProperties[i]
 
-					if (properties) {
-						for (const property of Object.keys(properties)) {
-							const value = properties[property]
-							if (
-								(value.type === 'array' ||
-									value.items?.type === 'string') &&
-								typeof context.query[property] === 'string' &&
-								context.query[property]
-							) {
-								// @ts-expect-error
-								context.query[property] =
-									context.query[property].split(',')
-							}
+						if (
+							typeof context.query[property] === 'string' &&
+							context.query[property]
+						) {
+							// @ts-expect-error
+							context.query[property] =
+								context.query[property].split(',')
 						}
 					}
 				}

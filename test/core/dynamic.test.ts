@@ -1,7 +1,8 @@
 import { Elysia, NotFoundError, status, t } from '../../src'
 
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, spyOn } from 'bun:test'
 import { post, req } from '../utils'
+import * as schemaModule from '../../src/schema'
 
 describe('Dynamic Mode', () => {
 	it('handle path', async () => {
@@ -659,6 +660,63 @@ describe('Dynamic Mode', () => {
 		expect(valid).toEqual({
 			foo: 'bar'
 		})
+	})
+
+	// The query schema is immutable after registration, so which properties
+	// accept a comma separated array is resolved once per route instead of
+	// re-walking the schema on every request. That redundant walk is invisible
+	// to behavior tests, so assert on the walk itself.
+	//
+	// A schema without defaults is used because applySchemaDefaults is gated on
+	// `hasDefault` (matching the AOT path) and would account for its own
+	// getSchemaProperties calls, masking the walk being measured here.
+	it('precompute query array properties instead of walking schema per request', async () => {
+		const app = new Elysia({ aot: false }).get('/', ({ query }) => query, {
+			query: t.Object({
+				name: t.String(),
+				nickname: t.String()
+			})
+		})
+
+		// Warm up: route registration and the first request may resolve the cache
+		await app.handle(req('/?name=neon'))
+
+		const spy = spyOn(schemaModule, 'getSchemaProperties')
+
+		try {
+			await app.handle(req('/?name=neon'))
+			spy.mockClear()
+
+			await app.handle(req('/?name=neon'))
+
+			expect(spy.mock.calls.length).toBe(0)
+		} finally {
+			spy.mockRestore()
+		}
+	})
+
+	// Caching the property list must not change what gets coerced
+	it('coerce query array after precomputing properties', async () => {
+		const app = new Elysia({ aot: false }).get('/', ({ query }) => query, {
+			query: t.Union([
+				t.Object({
+					ids: t.Array(t.String())
+				}),
+				t.Object({
+					id: t.String()
+				})
+			])
+		})
+
+		const first = await app
+			.handle(req('/?ids=1,2'))
+			.then((x) => x.json())
+		const second = await app
+			.handle(req('/?ids=3,4'))
+			.then((x) => x.json())
+
+		expect(first.ids).toEqual(['1', '2'])
+		expect(second.ids).toEqual(['3', '4'])
 	})
 
 	it('handle single query array', async () => {
