@@ -157,6 +157,29 @@ describe('WebSocket response validation', () => {
 		expect(received).not.toBe(JSON.stringify(invalid))
 	})
 
+	// ? The exact reproduction reported in #1933, exercised on
+	// ? createHandleWSResponse directly rather than through a live server
+	it('delivers a valid TypeBox payload and refuses an invalid one', async () => {
+		const handleResponse = createHandleWSResponse(
+			getSchemaValidator(typebox)
+		)
+		const messages: string[] = []
+		const ws = {
+			send(data: string) {
+				messages.push(data)
+				return 1
+			}
+		} as Parameters<typeof handleResponse>[0]
+
+		await handleResponse(ws, valid)
+		await handleResponse(ws, invalid)
+
+		expect(messages).toHaveLength(2)
+		expect(messages[0]).toBe(JSON.stringify(valid))
+		expect(messages[1]).toContain('"type": "validation"')
+		expect(messages[1]).not.toBe(JSON.stringify(invalid))
+	})
+
 	it('sends a valid standard schema message', async () => {
 		const { received, rejected } = await listen(
 			new Elysia().ws('/ws', {
