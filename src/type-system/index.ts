@@ -29,7 +29,8 @@ import {
 	createType,
 	loadFileType,
 	tryParse,
-	validateFile
+	validateFile,
+	validateTotalSize
 } from './utils'
 import {
 	CookieValidatorOptions,
@@ -79,7 +80,11 @@ const internalFiles = createType<FilesOptions, File[]>(
 		if (options.minItems && options.minItems > 1 && !Array.isArray(value))
 			return false
 
-		if (!Array.isArray(value)) return validateFile(options, value)
+		if (!Array.isArray(value))
+			return (
+				validateFile(options, value) &&
+				validateTotalSize(options, [value])
+			)
 
 		if (options.minItems && value.length < options.minItems) return false
 		if (options.maxItems && value.length > options.maxItems) return false
@@ -87,7 +92,7 @@ const internalFiles = createType<FilesOptions, File[]>(
 		for (let i = 0; i < value.length; i++)
 			if (!validateFile(options, value[i])) return false
 
-		return true
+		return validateTotalSize(options, value)
 	}
 ) as unknown as TFiles
 

@@ -61,6 +61,8 @@ import { expectTypeOf } from 'expect-type'
 			body: t.Object({
 				images: t.Files({
 					maxSize: '4m',
+					minTotalSize: '1k',
+					maxTotalSize: '4m',
 					type: 'image'
 				})
 			})

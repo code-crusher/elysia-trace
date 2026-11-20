@@ -118,6 +118,154 @@ describe('Files', () => {
 		}
 	})
 
+	it('validate maxTotalSize across files instead of per file', async () => {
+		// I have nothing but my burger and I want nothing more
+		const app = new Elysia().post('/', () => 'ok', {
+			body: t.Object({
+				file: t.Files({
+					// each file is under 500k, but millenium + midori is ~538k
+					maxSize: '500k',
+					maxTotalSize: '500k'
+				})
+			})
+		})
+
+		// case 1 pass: total is under the limit
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/millenium.jpg'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(200)
+		}
+
+		// case 2 fail: every file is valid on its own but the total isn't
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/millenium.jpg'))
+			body.append('file', Bun.file('test/images/midori.png'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(422)
+		}
+	})
+
+	it('validate minTotalSize across files', async () => {
+		const app = new Elysia().post('/', () => 'ok', {
+			body: t.Object({
+				file: t.Files({
+					minTotalSize: '500k'
+				})
+			})
+		})
+
+		// case 1 fail: total is under the minimum
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/midori.png'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(422)
+		}
+
+		// case 2 pass: total is over the minimum
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/millenium.jpg'))
+			body.append('file', Bun.file('test/images/midori.png'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(200)
+		}
+	})
+
+	it('validate total size for a single file', async () => {
+		const app = new Elysia().post('/', () => 'ok', {
+			body: t.Object({
+				file: t.Files({
+					maxTotalSize: '400k'
+				})
+			})
+		})
+
+		const body = new FormData()
+		body.append('file', Bun.file('test/images/millenium.jpg'))
+
+		const response = await app.handle(
+			new Request('http://localhost/', {
+				method: 'POST',
+				body
+			})
+		)
+
+		expect(response.status).toBe(422)
+	})
+
+	it('validate total size using byte value', async () => {
+		const app = new Elysia().post('/', () => 'ok', {
+			body: t.Object({
+				file: t.Files({
+					maxTotalSize: Bun.file('test/images/millenium.jpg').size
+				})
+			})
+		})
+
+		// case 1 pass: total is exactly at the limit
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/millenium.jpg'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(200)
+		}
+
+		// case 2 fail: total is one byte over the limit
+		{
+			const body = new FormData()
+			body.append('file', Bun.file('test/images/millenium.jpg'))
+			body.append('file', Bun.file('test/images/fake.jpg'))
+
+			const response = await app.handle(
+				new Request('http://localhost/', {
+					method: 'POST',
+					body
+				})
+			)
+
+			expect(response.status).toBe(422)
+		}
+	})
+
 	// Union schema tests - testing that getSchemaProperties handles Union correctly
 	it('handle file in Union schema', async () => {
 		const app = new Elysia().post('/', ({ body }) => 'ok', {

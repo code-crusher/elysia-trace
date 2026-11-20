@@ -13,6 +13,7 @@ import { InvalidFileType, ValidationError } from '../error'
 import type {
 	ElysiaTypeCustomErrorCallback,
 	FileOptions,
+	FilesOptions,
 	FileUnit,
 	FileType
 } from './types'
@@ -180,6 +181,34 @@ export const validateFile = (options: FileOptions, value: any) => {
 
 		return false
 	}
+
+	return true
+}
+
+/**
+ * Validate the combined size of every file in a `t.Files()` field.
+ *
+ * Unlike `minSize` and `maxSize` which apply to each file individually,
+ * this limits the sum of all files.
+ */
+export const validateTotalSize = (options: FilesOptions, value: unknown[]) => {
+	if (!options.minTotalSize && !options.maxTotalSize) return true
+
+	let totalSize = 0
+	for (let i = 0; i < value.length; i++) {
+		const file = value[i]
+
+		// `validateFile` skip ElysiaFile as its size may not be available synchronously
+		if (file instanceof ElysiaFile) return true
+
+		if (file instanceof Blob) totalSize += file.size
+	}
+
+	if (options.minTotalSize && totalSize < parseFileUnit(options.minTotalSize))
+		return false
+
+	if (options.maxTotalSize && totalSize > parseFileUnit(options.maxTotalSize))
+		return false
 
 	return true
 }
