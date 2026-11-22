@@ -882,11 +882,23 @@ export const fnToContainer = (
 	return fns
 }
 
+// I have nothing but my burger and I want nothing more
 export const localHookToLifeCycleStore = (a: AnyLocalHook): LifeCycleStore => {
 	if (a.start) a.start = fnToContainer(a.start)
 	if (a.request) a.request = fnToContainer(a.request)
 	if (a.parse) a.parse = fnToContainer(a.parse)
 	if (a.transform) a.transform = fnToContainer(a.transform)
+	// A macro's `derive` runs in the transform phase (same as `.derive()`),
+	// fold it into `transform` here, before the hook is merged with the
+	// instance chain, so instance/plugin `.derive()` entries still run first
+	// elysiajs/elysia#1958
+	if (a.derive) {
+		a.transform = mergeObjectArray(
+			a.transform,
+			fnToContainer(a.derive, 'derive')
+		) as any
+		delete a.derive
+	}
 	if (a.beforeHandle) a.beforeHandle = fnToContainer(a.beforeHandle)
 	if (a.afterHandle) a.afterHandle = fnToContainer(a.afterHandle)
 	if (a.mapResponse) a.mapResponse = fnToContainer(a.mapResponse)

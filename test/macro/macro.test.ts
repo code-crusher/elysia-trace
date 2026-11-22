@@ -518,6 +518,97 @@ describe('Macro', () => {
 		expect(b).toEqual({ name: 'hoshino' })
 	})
 
+	// elysiajs/elysia#1958: a macro's `derive` must reach the route instead of
+	// being silently dropped. It runs in the transform phase, so it sees values
+	// derived by the instance and plugins it is applied to (1.x parity)
+	it('accept derive and see instance-derived values', async () => {
+		const services = new Elysia({ name: 'svc' }).derive(
+			{ as: 'scoped' },
+			() => ({
+				db: { findUser: async () => ({ id: 'u1' }) }
+			})
+		)
+
+		const app = new Elysia()
+			.use(services)
+			.derive(() => ({ local: 'L' }))
+			.macro({
+				auth: (enabled: boolean) => ({
+					derive: async ({ db, local }) => ({
+						user: db ? await db.findUser() : null,
+						local
+					})
+				})
+			})
+			.get('/', ({ user, local }) => ({ user, local }), {
+				auth: true
+			})
+
+		const response = await app.handle(req('/'))
+
+		expect(response.status).toBe(200)
+		expect(await response.json()).toEqual({
+			user: { id: 'u1' },
+			local: 'L'
+		})
+	})
+
+	it('runs macro derive after instance derive in registration order', async () => {
+		const order: string[] = []
+
+		const app = new Elysia()
+			.derive(() => {
+				order.push('instance')
+
+				return { local: 'L' }
+			})
+			.macro({
+				a: (enabled: boolean) => ({
+					derive: ({ local }) => {
+						order.push(`a(local=${local})`)
+
+						return { a: 'A' }
+					}
+				}),
+				b: (enabled: boolean) => ({
+					derive: ({ a }) => {
+						order.push(`b(a=${a})`)
+
+						return { b: 'B' }
+					}
+				})
+			})
+			.get('/', ({ a, b }) => ({ a, b }), { a: true, b: true })
+
+		const response = await app.handle(req('/'))
+
+		expect(order).toEqual(['instance', 'a(local=L)', 'b(a=A)'])
+		expect(await response.json()).toEqual({ a: 'A', b: 'B' })
+	})
+
+	it('applies macro derive in group and guard callback', async () => {
+		const app = new Elysia()
+			.macro({
+				tenant: (name: string) => ({
+					derive: () => ({ tenant: name })
+				})
+			})
+			.group('/group', { tenant: 'acme' }, (app) =>
+				app.get('/', ({ tenant }) => tenant)
+			)
+			.guard({ tenant: 'acme' }, (app) =>
+				app.get('/guard', ({ tenant }) => tenant)
+			)
+
+		const [group, guard] = await Promise.all([
+			app.handle(req('/group')).then((x) => x.text()),
+			app.handle(req('/guard')).then((x) => x.text())
+		])
+
+		expect(group).toBe('acme')
+		expect(guard).toBe('acme')
+	})
+
 	it('accept async resolve', async () => {
 		const app = new Elysia()
 			.macro({

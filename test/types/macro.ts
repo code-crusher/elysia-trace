@@ -275,6 +275,64 @@ const app = new Elysia()
 		}
 	)
 
+// Macro derive reaches the consuming route, and its handler sees
+// instance-derived values (elysiajs/elysia#1958)
+{
+	const plugin = new Elysia()
+		.derive(() => ({ hello: 'world' as const }))
+		.macro({
+			account: (a: boolean) => ({
+				derive: ({ hello }) => {
+					expectTypeOf(hello).toEqualTypeOf<'world' | undefined>()
+
+					return {
+						account: 'A'
+					}
+				}
+			})
+		})
+		.get(
+			'/',
+			({ account }) => {
+				expectTypeOf(account).toEqualTypeOf<string>()
+			},
+			{
+				account: true
+			}
+		)
+
+	// derive is local, it doesn't leak to the parent instance
+	const parent = new Elysia().use(plugin).get('/', (context) => {
+		expectTypeOf(context).not.toHaveProperty('account')
+	})
+
+	const app = new Elysia().use(parent).get('/', (context) => {
+		expectTypeOf(context).not.toHaveProperty('account')
+	})
+}
+
+// guard handle derive macro
+{
+	const plugin = new Elysia()
+		.macro({
+			account: (a: boolean) => ({
+				derive: async () => ({
+					account: 'A'
+				})
+			})
+		})
+		.guard({
+			account: true
+		})
+		.get('/', ({ account }) => {
+			expectTypeOf(account).toEqualTypeOf<string>()
+		})
+
+	const parent = new Elysia().use(plugin).get('/', (context) => {
+		expectTypeOf(context).not.toHaveProperty('account')
+	})
+}
+
 // Macro name extends macro
 {
 	new Elysia()

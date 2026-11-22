@@ -1095,7 +1095,19 @@ type InnerMacroToContext<
 										>,
 										Record<any, unknown>
 									>
-								>
+								> &
+									ExtractResolveFromMacro<
+										Extract<
+											Exclude<
+												FunctionArrayReturnType<
+													// @ts-ignore Trust me bro
+													Value['derive']
+												>,
+												AnyElysiaCustomStatusResponse
+											>,
+											Record<any, unknown>
+										>
+									>
 							} & UnwrapMacroSchema<
 								// @ts-ignore Trust me bro
 								Value,
@@ -1121,6 +1133,12 @@ type InnerMacroToContext<
 									FunctionArrayReturnTypeNonNullable<
 										// @ts-expect-error type is checked in key mapping
 										Value['resolve']
+									>
+								> &
+								ExtractOnlyResponseFromMacro<
+									FunctionArrayReturnTypeNonNullable<
+										// @ts-expect-error type is checked in key mapping
+										Value['derive']
 									>
 								> &
 								InnerMacroToContext<
@@ -2023,6 +2041,7 @@ export interface MacroProperty<
 	mapResponse?: MaybeArray<MapResponse<TypedRoute, Singleton>>
 	afterResponse?: MaybeArray<AfterResponseHandler<TypedRoute, Singleton>>
 	resolve?: MaybeArray<ResolveHandler<TypedRoute, Singleton>>
+	derive?: MaybeArray<ResolveHandler<TypedRoute, Singleton>>
 	detail?: DocumentDecoration
 	/**
 	 * Introspect hook option for documentation generation or analysis
